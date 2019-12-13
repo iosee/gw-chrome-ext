@@ -1,0 +1,15 @@
+{
+  "manifest_version": 2,
+
+  "name": "GW plugin",
+  "description": "this extension will modify GW UI",
+  "version": "1.0",
+  "permissions": ["http://*.gwars.ru/", "activeTab"],
+  "content_scripts": [
+    {
+      "matches": ["http://*.gwars.ru/*"],
+      "css": ["./styles.css"],
+      "js": ["./index.js"]
+    }
+  ]
+}
