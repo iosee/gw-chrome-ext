@@ -151,12 +151,12 @@ function buildStatsInterface() {
 	container.insertBefore(info, container.children[2]);
 }
 
-if (location.href.indexOf('statlist.php') !== -1) {
+if (location.href.indexOf('/statlist.php') !== -1) {
     cacheMap();
     console.log(cache);
     fixUI();
 }
-if (location.href.indexOf('transfers.php') !== -1) {
+if (location.href.indexOf('/usertransfers.php') !== -1) {
     collectStats(0, () => {
     	console.log(lines, stats)
 		buildStatsInterface();
