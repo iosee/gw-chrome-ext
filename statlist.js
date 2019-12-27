@@ -61,12 +61,14 @@ function cacheTable(table) {
         if (!res[`${x},${y}`]) {
             res[`${x},${y}`] = [];
         }
+        const enemy = !!line.querySelector('s');
         res[`${x},${y}`].push({
             element: line,
             price,
             count,
             x,
-            y
+            y,
+            enemy
         })
     });
     return res;
@@ -78,24 +80,30 @@ function collectStats() {
         if (!summary[sector]) {
             summary[sector] = {
                 transactions: [],
-                profit: 0
+                profit: 0,
+                profitWithLicense: 0
             };
         }
         const buyerPositions = cache.buyers[sector];
         if (positions.length > 0 && buyerPositions && buyerPositions.length > 0) {
-            for (let {price, count} of positions) {
+            for (let {price, count, enemy} of positions) {
                 for (let buyerPosition of buyerPositions) {
                     if (buyerPosition.count && count && buyerPosition.price > price) {
                         // Buy position
                         const countToBuy = Math.min(buyerPosition.count, count);
+                        const licenseRequired = buyerPosition.enemy || enemy;
                         count -= countToBuy;
                         buyerPosition.count -= countToBuy;
                         summary[sector].transactions.push({
                             buy: countToBuy,
                             buyPrice: price,
-                            sellPrice: buyerPosition.price
+                            sellPrice: buyerPosition.price,
+                            licenseRequired
                         });
-                        summary[sector].profit += (buyerPosition.price - price) * countToBuy;
+                        if (!licenseRequired) {
+                            summary[sector].profit += (buyerPosition.price - price) * countToBuy;
+                        }
+                        summary[sector].profitWithLicense += (buyerPosition.price - price) * countToBuy;
                     } else {
                         break;
                     }
@@ -127,6 +135,7 @@ function addMap() {
             const xy = `${x},${y}`;
             const info = summary[xy];
             const profit = info ? info.profit : 0;
+            const profitWithLicense = info ? info.profitWithLicense : 0;
             const cell = line.insertCell();
             const filterLink = createFilterLink(x,y);
             const content = document.createElement('div');
@@ -135,6 +144,10 @@ function addMap() {
             cell.innerHTML = `<span class="vp-small">[${xy}]</span>`;
             content.className = `vp-center ${profit ? 'vp-has-profit' : ''}`;
             content.innerHTML = `${profit}`;
+            if (profit !== profitWithLicense) {
+                content.innerHTML += `<div class="vp-small">(+${profitWithLicense - profit})</div>`;
+            }
+
             cell.appendChild(filterLink);
             cell.appendChild(content);
         }
