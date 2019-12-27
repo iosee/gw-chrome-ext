@@ -7,9 +7,14 @@
   "permissions": ["http://*.gwars.ru/", "activeTab"],
   "content_scripts": [
     {
-      "matches": ["http://*.gwars.ru/*"],
+      "matches": ["http://*.gwars.ru/statlist.php?*"],
       "css": ["./styles.css"],
-      "js": ["./index.js"]
+      "js": ["./statlist.js"]
+    },
+    {
+      "matches": ["http://*.gwars.ru/usertransfers.php?*"],
+      "css": ["./styles.css"],
+      "js": ["./usertransfers.js"]
     }
   ]
 }
