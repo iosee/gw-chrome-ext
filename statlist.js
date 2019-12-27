@@ -26,6 +26,9 @@ function filterMap(x, y, neighbors) {
 }
 
 function fixUI() {
+    const activeLink = document.querySelector('a[href="' + location.href + '"]');
+    activeLink.className += ' vp-active-link';
+
     return Array.from(document.querySelectorAll('a'))
         .filter(a => {
             if (a.href.indexOf('map.php?sx') !== -1) {

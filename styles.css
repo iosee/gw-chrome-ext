@@ -66,3 +66,7 @@
 .vp-port-sector {
     border: 1px dashed #220080;
 }
+.vp-active-link {
+    font-weight: bold;
+    text-decoration: underline;
+}
