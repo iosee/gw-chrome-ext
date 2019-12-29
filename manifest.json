@@ -9,12 +9,12 @@
     {
       "matches": ["http://*.gwars.ru/statlist.php?*"],
       "css": ["./styles.css"],
-      "js": ["./statlist.js"]
+      "js": ["tool/logger.js", "tool/requests.js", "./statlist.js"]
     },
     {
       "matches": ["http://*.gwars.ru/usertransfers.php?*"],
       "css": ["./styles.css"],
-      "js": ["./usertransfers.js"]
+      "js": ["tool/logger.js", "tool/requests.js", "./usertransfers.js"]
     }
   ]
 }

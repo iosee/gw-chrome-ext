@@ -1,47 +1,39 @@
 const stats = {};
 const transactions = [];
 
-function collectStats(page, cb) {
-    fetch('transfers.php?page_id=' + page)
-        .then(response => response.arrayBuffer())
-        .then(buffer => {
-            let decoder = new TextDecoder("windows-1251");
-            let text = decoder.decode(buffer);
+async function collectStats(page, cb) {
+    const html = await VP.getHtml('/transfers.php?page_id=' + page);
 
-            if (text.includes('Транзакции не найдены')) {
-                cb();
-                return;
-            }
+    if (html.innerText.includes('Транзакции не найдены')) {
+        cb();
+        return;
+    }
+    const rows = Array.from(html.querySelectorAll('.gw-container>table')[2].tBodies[0].rows);
 
-            const oParser = new DOMParser();
-            const oDOM = oParser.parseFromString(text, "text/html").body;
-            const rows = Array.from(oDOM.querySelectorAll('.gw-container>table')[2].tBodies[0].rows);
+    for (let row of rows) {
+        const parts = row.innerText.split('\n');
+        const time = parts[2];
+        if (transactions.indexOf(time) !== -1) {
+            continue;
+        }
+        transactions.push(time);
 
-            for (let row of rows) {
-                const parts = row.innerText.split('\n');
-                const time = parts[2];
-                if (transactions.indexOf(time) !== -1) {
-                    continue;
-                }
-                transactions.push(time);
+        const match = parts[3].match(/[^\s]+\s([^\s]+)\s(\d+)\s(.+?)\sза\s(\d+)/i);
+        const name = match[3];
+        const action = match[1] === 'продал' ? 'sell' : 'buy';
+        const count = Number(match[2]);
+        const price = Number(match[4]);
+        if (!stats[name]) {
+            stats[name] = {buy: {}, sell: {}}
+        }
 
-                const match = parts[3].match(/[^\s]+\s([^\s]+)\s(\d+)\s(.+?)\sза\s(\d+)/i);
-                const name = match[3];
-                const action = match[1] === 'продал' ? 'sell' : 'buy';
-                const count = Number(match[2]);
-                const price = Number(match[4]);
-                if (!stats[name]) {
-                    stats[name] = {buy: {}, sell: {}}
-                }
+        stats[name][action] = {
+            count: (stats[name][action].count || 0) + count,
+            price: (stats[name][action].price || 0) + price
+        };
+    }
 
-                stats[name][action] = {
-                    count: (stats[name][action].count || 0) + count,
-                    price: (stats[name][action].price || 0) + price
-                };
-            }
-
-            setTimeout(() => collectStats(page + 1, cb), 400);
-        });
+    setTimeout(() => collectStats(page + 1, cb), 400);
 }
 
 
