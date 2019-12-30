@@ -18,7 +18,8 @@ const resInfo = {
     solomka: 0.25,
     bauxite: 0.5
 };
-const maxWeightLimit = '153';
+const maxWeightLimit = '160';
+const errorLabelEl = '<span class="vp-error">Error: </span>';
 
 function filterMap(x, y, neighbors) {
     return Array.from(document.querySelectorAll('a'))
@@ -361,7 +362,7 @@ async function doBuyTransaction(objectId, count, type, id) {
     const formValues = await VP.getFormTransaction(objectId, type);
     console.log(formValues);
     if (formValues.amount < count) {
-        alert('amount has changed. abort');
+        VPLogger.log('amount has changed. abort');
         return;
     }
     formValues.amount = count;
@@ -373,23 +374,30 @@ async function doSellTransaction(objectId, count, type, id) {
 
     const formValues = await VP.getFormTransaction(objectId, type);
     console.log(formValues);
-
+    if (typeof formValues === 'string') {
+        VPLogger.log(`<div><span class="vp-error">Error: </span>: ${formValues}</div>`);
+        return;
+    }
     formValues.amount = count;
     return doObjectTransferRequest(formValues, id);
 }
 
 async function doObjectTransferRequest(formValues, id) {
+    let message = '';
     const postResponseBody = await VP.postDataHtml('object-transfers.php', formValues);
     const messageContainer = postResponseBody.querySelector('table[align=center] td');
     if (messageContainer) {
         const statusText = messageContainer.innerText;
         if (!statusText.includes('Вы успешно')) {
             // TODO: add captcha case here
-            transactionStatusEls[id].innerHTML = `<span class="vp-error">Error: </span>`;
+            message += errorLabelEl;
         }
-        transactionStatusEls[id].innerHTML += messageContainer.innerHTML;
+        message += `<div>${messageContainer.innerHTML}</div>`;
+    } else {
+        message += `${errorLabelEl}${postResponseBody.innerHTML}`;
     }
-    VPLogger.log(transactionStatusEls[id].innerHTML);
+    VPLogger.log(message);
+    transactionStatusEls[id].innerHTML += message;
 }
 
 (async function() {

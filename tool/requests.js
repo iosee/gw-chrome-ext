@@ -52,7 +52,7 @@ const VP = {
                 }, {});
             }
         } else {
-            alert('elementNotFound');
+            return html.body.innerHTML;
         }
     }
 };
