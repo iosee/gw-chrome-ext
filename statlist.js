@@ -20,6 +20,7 @@ const resInfo = {
 };
 const maxWeightLimit = '160';
 const errorLabelEl = '<span class="vp-error">Error: </span>';
+const transactions = [];
 
 function filterMap(x, y, neighbors) {
     return Array.from(document.querySelectorAll('a'))
@@ -88,7 +89,11 @@ function scanForResourceInfo(body) {
 function cacheTable(table) {
     const res = {};
     Array.from(table.tBodies[0].rows).slice(1).forEach((line) => {
-        const [x, y] = line.cells[0].firstElementChild.href.replace(/.*\?sx=(\d+)&sy=(\d+).*/g, '$1,$2').split(',');
+        const linkHref = line.cells[0].firstElementChild.href;
+        if (!linkHref) {
+            return;
+        }
+        const [x, y] = linkHref.replace(/.*\?sx=(\d+)&sy=(\d+).*/g, '$1,$2').split(',');
         const count = Number(line.cells[1].innerText);
         const price = Number(line.cells[2].innerText.replace(/\D+/i, ''));
         if (!res[`${x},${y}`]) {
@@ -200,7 +205,7 @@ function createMapCellContent(x, y) {
     container.appendChild(filterLink);
     let detailedInfo = '';
 
-    for(const [resource, rInfo] of Object.entries(sectorSummary)) {
+    for (const [resource, rInfo] of Object.entries(sectorSummary)) {
         const currentResourceProfit = rInfo.profit;
         const currentResourceProfitWithLicense = sectorSummaryWithLicense[resource].profit;
         const additional = currentResourceProfitWithLicense - currentResourceProfit;
@@ -265,6 +270,7 @@ function showTransactions() {
     const container = document.createElement('div');
     container.className = 'vp-transaction-section';
     container.innerHTML = '<div class="greenbg"><h3>Transactions</h3></div>';
+    container.appendChild(createDoAllTransactionsButton());
     const activeSectorInfo = summary[currentSector];
 
     if (activeSectorInfo) {
@@ -287,58 +293,132 @@ function showTransactions() {
     document.querySelector('.gw-container>center').prepend(container);
 }
 
+function createDoAllTransactionsButton() {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.innerText = '~~~ DO ~~~';
+    button.onclick = async () => {
+        button.disabled = true;
+        transactions.sort((a, b) => b.profit - a.profit);
+        console.log('Doing next: ', transactions);
+        for (const transaction of transactions) {
+            if (transaction.done) {
+                continue;
+            }
+            try {
+                await doFullTransaction(
+                    transaction.fromObject.id,
+                    transaction.toObject.id,
+                    transaction.amount,
+                    transaction.resource,
+                    transaction.id
+                );
+                transaction.done = true;
+            } catch (e) {
+                break;
+            }
+
+            await VP.asyncTimeout(Math.round(1000 + Math.random() * 3000));
+        }
+        button.disabled = false;
+        await VPLogger.log('<span class="vp-success-message">Done! :) go to next region: </span>');
+    };
+    return button;
+}
+
 function createTransactionComponent(transaction, resource) {
     const transactionContainer = document.createElement('div');
     transactionContainer.className = 'vp-transaction-section--item';
     let totalBuy = transaction.buy.count;
     while (totalBuy > 0) {
         const buyPerIteration = Math.min(totalBuy, maxWeightLimit / resInfo[resource]);
+        const iterationProfit = buyPerIteration * (transaction.sell.price - transaction.buy.price);
         totalBuy -= buyPerIteration;
-        const fullCycleButton = createFullCycleButton(transaction, buyPerIteration, resource);
-        const buyLine = document.createElement('div');
-        buyLine.className = 'vp-buy-line';
-        buyLine.innerHTML = `Buy: <b>${buyPerIteration}</b> in <a target="_blank" href="/object.php?id=${transaction.buy.object.id}">${transaction.buy.object.name}</a>`;
+        transactionID++;
+        let statusEl = createStatusElement(transactionID);
+        const fullCycleButton = createFullCycleButton(transaction, buyPerIteration, resource, transactionID);
+        transactions.push({
+            fromObject: {
+                ...transaction.buy.object
+            },
+            toObject: {
+                ...transaction.sell.object
+            },
+            amount: buyPerIteration,
+            profit: iterationProfit,
+            resource,
+            id: transactionID
+        });
 
-        let statusEl = createStatusElement(++transactionID);
-        transactionStatusEls[transactionID] = statusEl;
-        buyLine.append(createBuyButton(transaction.buy.object.id, buyPerIteration, resource, transactionID), statusEl);
-
-        const sellLine = document.createElement('div');
-        sellLine.className = 'vp-sell-line';
-        sellLine.innerHTML = `Sell: <b>${buyPerIteration}</b> in <a target="_blank" href="/object.php?id=${transaction.sell.object.id}">${transaction.sell.object.name}</a>`;
-
-        statusEl = createStatusElement(++transactionID);
-        transactionStatusEls[transactionID] = statusEl;
-        sellLine.append(createSellButton(transaction.sell.object.id, buyPerIteration, resource, transactionID), statusEl);
-
-        transactionContainer.append(fullCycleButton, buyLine, sellLine);
+        const line = document.createElement('div');
+        line.className = 'vp-buy-line';
+        line.innerHTML = `
+            <b>+${iterationProfit}Gb</b> 
+            (${buyPerIteration}, <a target="_blank" href="/object.php?id=${transaction.buy.object.id}">${transaction.buy.object.name}</a>
+            &raquo; <a target="_blank" href="/object.php?id=${transaction.sell.object.id}">${transaction.sell.object.name}</a>)
+        `;
+        line.append(fullCycleButton, statusEl);
+        transactionContainer.append(line);
     }
 
     return transactionContainer;
 }
 
-function createFullCycleButton(transaction, amount, type) {
-    const div = document.createElement('div');
-    div.className = 'vp-buy-line';
+function createFullCycleButton(transaction, amount, type, transactionID) {
     const button = document.createElement('button');
-    let statusEl = createStatusElement(++transactionID);
     button.type = 'button';
-    button.innerText = 'Buy + Sell';
-    button.onclick = () => doFullTransaction(transaction.buy.object.id, transaction.sell.object.id, amount, type, transactionID);
-    div.append(button, statusEl);
-    return div;
+    button.innerText = '⤪';
+    button.onclick = async () => {
+        button.disabled = true;
+        await doFullTransaction(transaction.buy.object.id, transaction.sell.object.id, amount, type, transactionID);
+        button.disabled = false;
+    };
+    return button;
 }
 
-function doFullTransaction(fromObjectId, toObjectId, amount, type, id) {
+async function doFullTransaction(fromObjectId, toObjectId, amount, type, id) {
     // 1. Fetch objects
-    // 2. Check amounts
-    // 3. Buy -> sell
+    const fromObjectInfo = await VP.getFormTransaction(fromObjectId, type);
+    if (typeof fromObjectInfo === 'string') {
+        VPLogger.log(`<div>${errorLabelEl}: ${fromObjectInfo}</div>`, id);
+        return false;
+    }
+    if (fromObjectInfo.availableAmount < amount) {
+        VPLogger.log(`Object can't sell <b>${amount}</b> ${type}. Available: <b>${fromObjectInfo.availableAmount}</b>`, id);
+        return false;
+    }
+
+    const toObjectInfo = await VP.getFormTransaction(toObjectId, type);
+    if (typeof toObjectInfo === 'string') {
+        VPLogger.log(`<div>${errorLabelEl}: ${toObjectInfo}</div>`, id);
+        return false;
+    }
+    if (toObjectInfo.canBuy < amount) {
+        VPLogger.log(`Object can't buy <b>${amount}</b> ${type}. Can buy: <b>${toObjectInfo.canBuy}</b>`, id);
+        return false;
+    }
+
+    // Buy
+    VPLogger.log(`buying <b>${amount}</b> ${type} in <a href="/object.php?id=${fromObjectId}">#${fromObjectId}</a>`, id);
+    await doObjectTransferRequest({
+        ...fromObjectInfo.formValues,
+        amount
+    }, id);
+
+    // Sell
+    VPLogger.log(`wait 2 sec and selling <b>${amount}</b> ${type} to <a href="/object.php?id=${toObjectId}">#${toObjectId}</a>`, id);
+    await VP.asyncTimeout(1500);
+    await doObjectTransferRequest({
+        ...toObjectInfo.formValues,
+        amount
+    }, id);
 }
 
 function createStatusElement(id) {
     const el = document.createElement('div');
     el.className = 'vp-status-line';
     el.setAttribute('transaction-id', id);
+    transactionStatusEls[id] = el;
     return el;
 }
 
@@ -358,28 +438,36 @@ function createSellButton(objectId, count, type, id) {
     return button;
 }
 
-async function doBuyTransaction(objectId, count, type, id) {
-    const formValues = await VP.getFormTransaction(objectId, type);
-    console.log(formValues);
-    if (formValues.amount < count) {
-        VPLogger.log('amount has changed. abort');
-        return;
+async function doBuyTransaction(objectId, amount, type, id) {
+    const fromObjectInfo = await VP.getFormTransaction(objectId, type);
+
+    if (typeof fromObjectInfo === 'string') {
+        VPLogger.log(`<div>${errorLabelEl}: ${fromObjectInfo}</div>`, id);
+        return false;
     }
-    formValues.amount = count;
-    return doObjectTransferRequest(formValues, id);
+    if (fromObjectInfo.formValues.amount < amount) {
+        VPLogger.log('amount has changed. abort', id);
+        return false;
+    }
+    return doObjectTransferRequest({
+        ...fromObjectInfo.formValues,
+        amount
+    }, id);
 }
 
-async function doSellTransaction(objectId, count, type, id) {
-    VPLogger.log(`try to sell <b>${count}</b> ${type} to <a href="/object.php?id=${objectId}">#${objectId}</a>`);
+async function doSellTransaction(objectId, amount, type, id) {
+    VPLogger.log(`try to sell <b>${amount}</b> ${type} to <a href="/object.php?id=${objectId}">#${objectId}</a>`, id);
 
-    const formValues = await VP.getFormTransaction(objectId, type);
-    console.log(formValues);
-    if (typeof formValues === 'string') {
-        VPLogger.log(`<div><span class="vp-error">Error: </span>: ${formValues}</div>`);
+    const toObjectInfo = await VP.getFormTransaction(objectId, type);
+
+    if (typeof toObjectInfo === 'string') {
+        VPLogger.log(`<div>${errorLabelEl}: ${toObjectInfo}</div>`, id);
         return;
     }
-    formValues.amount = count;
-    return doObjectTransferRequest(formValues, id);
+    return doObjectTransferRequest({
+        ...toObjectInfo.formValues,
+        amount
+    }, id);
 }
 
 async function doObjectTransferRequest(formValues, id) {
@@ -390,21 +478,22 @@ async function doObjectTransferRequest(formValues, id) {
         const statusText = messageContainer.innerText;
         if (!statusText.includes('Вы успешно')) {
             // TODO: add captcha case here
-            message += errorLabelEl;
+            message += errorLabelEl + messageContainer.innerHTML;
+            VPLogger.log(message, id);
+            throw message;
         }
         message += `<div>${messageContainer.innerHTML}</div>`;
     } else {
         message += `${errorLabelEl}${postResponseBody.innerHTML}`;
     }
-    VPLogger.log(message);
-    transactionStatusEls[id].innerHTML += message;
+    VPLogger.log(message, id);
 }
 
-(async function() {
+(async function () {
     if (location.href.indexOf('/statlist.php') !== -1) {
         // get current sector
         findCurrentSector();
-        VPLogger.log(`Defined Crrent sector: <b>${currentSector}</b>`);
+        VPLogger.log(`Defined current sector: <b>${currentSector}</b>`);
         await cacheMap();
         summary = collectStats();
         VPLogger.log(`Collected stats without license`);

@@ -40,6 +40,11 @@
     height: 100%;
 }
 
+.vp-success-message {
+    color: green;
+    font-weight: bold;
+}
+
 .vp-small {
     font-size: 10px;
 }
@@ -83,7 +88,7 @@
 }
 
 .vp-transaction-section {
-    width: 490px;
+    width: 590px;
 }
 
 .vp-transaction-section h3 {
@@ -109,16 +114,23 @@
     display: inline-block;
     cursor: pointer;
     color: #003300;
-    font-size: 8pt;
+    font-size: 12pt;
     padding: 0px 10px;
     text-decoration: none;
     text-shadow: 1px 1px 0px #dcffc4;
     margin-left: 10px;
 }
+.vp-transaction-section button[disabled] {
+    opacity: 0.5;
+}
 
 .vp-status-line {
     padding-left: 20px;
     font-size: 8pt;
+    color: #003300;
+}
+.vp-status-line > div {
+    border-bottom: 1px dotted #408040;
 }
 .vp-error {
     color: #ff0404;
@@ -135,7 +147,7 @@
     box-shadow: -1px 1px 2px #003300;
     background: #dceddc;
     overflow-y: auto;
-    opacity: .8;
+    opacity: .4;
 }
 .vp-logger-container:hover {
     opacity: 1;

@@ -42,17 +42,39 @@ const VP = {
         if (resourceField) {
             const form = resourceField.parentNode;
             if (!form) {
-                alert('нет формы');
+                return 'не могу найти форму';
             } else {
-                return Array.from(form.elements).reduce((acc, el) => {
+                const availableAmount = Number.parseFloat(form.parentNode.parentNode.cells[2].innerText);
+
+                const canBuy = Number.parseFloat(form.parentNode.parentNode.cells[3] ? form.parentNode.parentNode.cells[3].innerText : 0);
+                const formValues = Array.from(form.elements).reduce((acc, el) => {
                     if (el.name) {
                         acc[el.name] = el.value;
                     }
                     return acc;
                 }, {});
+                return {
+                    availableAmount,
+                    formValues,
+                    canBuy
+                }
+
             }
         } else {
-            return html.body.innerHTML;
+            const resourceLink = html.querySelector(`a[href='/statlist.php?r=${resourceName}']`);
+            if (resourceLink) {
+                const availableAmount = Number.parseFloat(resourceLink.parentNode.parentNode.cells[2].innerText);
+                const canBuy = Number.parseFloat(resourceLink.parentNode.parentNode.cells[3].innerText);
+                return {
+                    availableAmount,
+                    canBuy
+                }
+            }
+            return html.innerHTML;
         }
+    },
+
+    asyncTimeout: (ms) => {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 };
