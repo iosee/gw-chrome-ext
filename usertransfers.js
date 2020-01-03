@@ -1,9 +1,19 @@
 const stats = {};
 const transactions = [];
 
+function isToday(dateStr) {
+    const today = new Date();
+    const dateParts = dateStr.split(' ')[0].split('.');
+    let day = Number(dateParts[0]);
+    if (today.getDate() === day && today.getMonth() + 1 === Number(dateParts[1])) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 async function collectStats(page, cb) {
     const html = await VP.getHtml('/transfers.php?page_id=' + page);
-
     if (html.innerText.includes('Транзакции не найдены')) {
         cb();
         return;
@@ -13,6 +23,11 @@ async function collectStats(page, cb) {
     for (let row of rows) {
         const parts = row.innerText.split('\n');
         const time = parts[2];
+        if (!isToday(time, 0)) {
+            cb();
+            return;
+        }
+
         if (transactions.indexOf(time) !== -1) {
             continue;
         }
@@ -43,6 +58,7 @@ function buildStatsInterface() {
     info.className = 'vp-info';
 
     let content = '';
+    let total = 0;
 
     for (const [name, data] of Object.entries(stats)) {
         const sellPrice = data.sell.price || 0;
@@ -50,6 +66,7 @@ function buildStatsInterface() {
         const buyCount = data.buy.count || 0;
         const buyPrice = data.buy.price || 0;
         const totalPrice = sellPrice - buyPrice;
+        total += totalPrice;
         content += `
 			<div class="vp-section">
 				<div class="vp-section-title">${name}</div>
@@ -63,7 +80,7 @@ function buildStatsInterface() {
 			</div>
 		`;
     }
-    info.innerHTML = content;
+    info.innerHTML = `<div> Total profit: <b>${total}</b></div>${content}`;
 
     container.insertBefore(info, container.children[2]);
 }

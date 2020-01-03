@@ -18,9 +18,19 @@ const resInfo = {
     solomka: 0.25,
     bauxite: 0.5
 };
-const maxWeightLimit = '160';
+const maxWeightLimit = 170;
 const errorLabelEl = '<span class="vp-error">Error: </span>';
 const transactions = [];
+let restartEnabled = true;
+
+function getMaxWeightLimit() {
+    const el = document.getElementById('maxWeightLimit');
+    if (el && el.value) {
+        return el.value;
+    } else {
+        return maxWeightLimit;
+    }
+}
 
 function filterMap(x, y, neighbors) {
     return Array.from(document.querySelectorAll('a'))
@@ -269,7 +279,7 @@ function findCurrentSector() {
 function showTransactions() {
     const container = document.createElement('div');
     container.className = 'vp-transaction-section';
-    container.innerHTML = '<div class="greenbg"><h3>Transactions</h3></div>';
+    container.innerHTML = `<div class="greenbg"><h3>Transactions</h3></div>`;
     container.appendChild(createDoAllTransactionsButton());
     const activeSectorInfo = summary[currentSector];
 
@@ -294,6 +304,9 @@ function showTransactions() {
 }
 
 function createDoAllTransactionsButton() {
+    const div = document.createElement('div');
+    div.innerHTML += `maxWeightLimit: <input id="maxWeightLimit" value="${maxWeightLimit}">`;
+
     const button = document.createElement('button');
     button.type = 'button';
     button.innerText = '~~~ DO ~~~';
@@ -301,6 +314,7 @@ function createDoAllTransactionsButton() {
         button.disabled = true;
         transactions.sort((a, b) => b.profit - a.profit);
         console.log('Doing next: ', transactions);
+        restartEnabled = false;
         for (const transaction of transactions) {
             if (transaction.done) {
                 continue;
@@ -317,13 +331,15 @@ function createDoAllTransactionsButton() {
             } catch (e) {
                 break;
             }
-
             await VP.asyncTimeout(Math.round(1000 + Math.random() * 3000));
         }
+        restartEnabled = true;
         button.disabled = false;
+        document.title = ':::: Done :::: ';
         await VPLogger.log('<span class="vp-success-message">Done! :) go to next region: </span>');
     };
-    return button;
+    div.appendChild(button);
+    return div;
 }
 
 function createTransactionComponent(transaction, resource) {
@@ -331,7 +347,7 @@ function createTransactionComponent(transaction, resource) {
     transactionContainer.className = 'vp-transaction-section--item';
     let totalBuy = transaction.buy.count;
     while (totalBuy > 0) {
-        const buyPerIteration = Math.min(totalBuy, maxWeightLimit / resInfo[resource]);
+        const buyPerIteration = Math.min(totalBuy, getMaxWeightLimit() / resInfo[resource]);
         const iterationProfit = buyPerIteration * (transaction.sell.price - transaction.buy.price);
         totalBuy -= buyPerIteration;
         transactionID++;
@@ -370,8 +386,10 @@ function createFullCycleButton(transaction, amount, type, transactionID) {
     button.innerText = '⤪';
     button.onclick = async () => {
         button.disabled = true;
+        restartEnabled = false;
         await doFullTransaction(transaction.buy.object.id, transaction.sell.object.id, amount, type, transactionID);
         button.disabled = false;
+        restartEnabled = true;
     };
     return button;
 }
@@ -420,22 +438,6 @@ function createStatusElement(id) {
     el.setAttribute('transaction-id', id);
     transactionStatusEls[id] = el;
     return el;
-}
-
-function createBuyButton(objectId, count, type, id) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.innerText = 'Buy';
-    button.onclick = () => doBuyTransaction(objectId, count, type, id);
-    return button;
-}
-
-function createSellButton(objectId, count, type, id) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.innerText = 'Sell';
-    button.onclick = () => doSellTransaction(objectId, count, type, id);
-    return button;
 }
 
 async function doBuyTransaction(objectId, amount, type, id) {
@@ -488,6 +490,14 @@ async function doObjectTransferRequest(formValues, id) {
     }
     VPLogger.log(message, id);
 }
+function buildCollectStatisticsUI() {
+
+    // setInterval(() => {
+    //     if(restartEnabled) {
+    //         window.location.reload();
+    //     }
+    // }, 30000)
+}
 
 (async function () {
     if (location.href.indexOf('/statlist.php') !== -1) {
@@ -505,6 +515,8 @@ async function doObjectTransferRequest(formValues, id) {
         VPLogger.log(`Map rendered`);
         fixUI();
         VPLogger.log(`Added UI fixes to the statlist`);
+
+        buildCollectStatisticsUI();
     }
 
 })();
