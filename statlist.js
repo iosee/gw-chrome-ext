@@ -2,6 +2,7 @@ let cache = {};
 let summary = {};
 let summaryWithLicense = {};
 let currentSector = '';
+let currentSectorCords;
 let neighborSectors = [];
 let neighborSectorColor = 'rgb(237, 124, 2)';
 let currentSectorColor = 'rgb(255, 4, 4)';
@@ -22,7 +23,11 @@ const maxWeightLimit = 170;
 const errorLabelEl = '<span class="vp-error">Error: </span>';
 const transactions = [];
 let restartEnabled = true;
-
+let GO_BUTTON;
+let neighborMaxProfit = 0;
+let neighborMaxProfitCords;
+let VPNextMove;
+let error = false;
 function getMaxWeightLimit() {
     const el = document.getElementById('maxWeightLimit');
     if (el && el.value) {
@@ -228,6 +233,14 @@ function createMapCellContent(x, y) {
     }
 
     content.innerHTML = `${profit}`;
+
+    if (neighborSectors.includes(xy)) {
+        if (neighborMaxProfit < profit) {
+            neighborMaxProfitCords = { x, y };
+            neighborMaxProfit = profit;
+        }
+    }
+
     if (profit !== profitWithLicense) {
         content.innerHTML += `<span class="vp-small">(+${profitWithLicense - profit})</span>`;
     }
@@ -266,9 +279,11 @@ function createFilterLink(x, y, neighbors) {
 function findCurrentSector() {
     Array.from(document.querySelectorAll('td>a[style]')).forEach(link => {
         const xy = link.href.replace(/.*sx=(\d+)&sy=(\d+)/gi, '$1,$2');
+        const [x, y] = xy.split(',').map(Number);
         if (xy) {
             if (link.style.color === currentSectorColor) {
                 currentSector = xy;
+                currentSectorCords = {x, y};
             } else if (link.style.color === neighborSectorColor) {
                 neighborSectors.push(xy);
             }
@@ -307,39 +322,52 @@ function createDoAllTransactionsButton() {
     const div = document.createElement('div');
     div.innerHTML += `maxWeightLimit: <input id="maxWeightLimit" value="${maxWeightLimit}">`;
 
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.innerText = '~~~ DO ~~~';
-    button.onclick = async () => {
-        button.disabled = true;
-        transactions.sort((a, b) => b.profit - a.profit);
-        console.log('Doing next: ', transactions);
-        restartEnabled = false;
-        for (const transaction of transactions) {
-            if (transaction.done) {
-                continue;
-            }
-            try {
-                await doFullTransaction(
-                    transaction.fromObject.id,
-                    transaction.toObject.id,
-                    transaction.amount,
-                    transaction.resource,
-                    transaction.id
-                );
-                transaction.done = true;
-            } catch (e) {
-                break;
-            }
-            await VP.asyncTimeout(Math.round(1000 + Math.random() * 3000));
-        }
-        restartEnabled = true;
-        button.disabled = false;
-        document.title = ':::: Done :::: ';
-        await VPLogger.log('<span class="vp-success-message">Done! :) go to next region: </span>');
-    };
-    div.appendChild(button);
+    GO_BUTTON = document.createElement('button');
+    GO_BUTTON.type = 'button';
+    GO_BUTTON.innerText = ' Do it!';
+    GO_BUTTON.onclick = doFullCycle;
+    div.appendChild(GO_BUTTON);
     return div;
+}
+
+async function doFullCycle() {
+    GO_BUTTON.disabled = true;
+    transactions.sort((a, b) => b.profit - a.profit);
+    console.log('Doing next: ', transactions);
+    let totalProfit = 0;
+    for (const transaction of transactions) {
+        const index = transactions.indexOf(transaction);
+        if (transaction.done) {
+            continue;
+        }
+        try {
+            const success = await doFullTransaction(
+                transaction.fromObject.id,
+                transaction.toObject.id,
+                transaction.amount,
+                transaction.resource,
+                transaction.id
+            );
+            if (success) {
+                transaction.done = true;
+                totalProfit += transaction.profit;
+            }
+            document.title = `${ Math.round((index + 1) * 100 / transactions.length ) } % ::: +${totalProfit}`;
+        } catch (e) {
+            error = true;
+            break;
+        }
+        await VP.asyncTimeout(Math.round(2000 + Math.random() * 3000));
+    }
+    GO_BUTTON.disabled = false;
+    document.title = '100% :::: Done :::: ';
+
+    const collectedInfo = getCollectedInfoByAutoRun();
+    setCollectedInfoByAutoRun({
+        profit: (collectedInfo.profit || 0) + totalProfit,
+        sectorsVisited: (collectedInfo.sectorsVisited || 0) + 1
+    });
+    VPLogger.log(`<span class="vp-success-message">Done! Collected ${totalProfit} Gb</span>`);
 }
 
 function createTransactionComponent(transaction, resource) {
@@ -399,6 +427,7 @@ async function doFullTransaction(fromObjectId, toObjectId, amount, type, id) {
     const fromObjectInfo = await VP.getFormTransaction(fromObjectId, type);
     if (typeof fromObjectInfo === 'string') {
         VPLogger.log(`<div>${errorLabelEl}: ${fromObjectInfo}</div>`, id);
+        error = true;
         return false;
     }
     if (fromObjectInfo.availableAmount < amount) {
@@ -409,6 +438,7 @@ async function doFullTransaction(fromObjectId, toObjectId, amount, type, id) {
     const toObjectInfo = await VP.getFormTransaction(toObjectId, type);
     if (typeof toObjectInfo === 'string') {
         VPLogger.log(`<div>${errorLabelEl}: ${toObjectInfo}</div>`, id);
+        error = true;
         return false;
     }
     if (toObjectInfo.canBuy < amount) {
@@ -430,6 +460,7 @@ async function doFullTransaction(fromObjectId, toObjectId, amount, type, id) {
         ...toObjectInfo.formValues,
         amount
     }, id);
+    return true;
 }
 
 function createStatusElement(id) {
@@ -490,13 +521,26 @@ async function doObjectTransferRequest(formValues, id) {
     }
     VPLogger.log(message, id);
 }
-function buildCollectStatisticsUI() {
 
-    // setInterval(() => {
-    //     if(restartEnabled) {
-    //         window.location.reload();
-    //     }
-    // }, 30000)
+async function autoRun() {
+    await doFullCycle();
+
+    if (isAutoRunEnabled() && !error) {
+        if (isStayInEnabled()) {
+            await VP.asyncTimeout(50000);
+            if (isAutoRunEnabled() && isStayInEnabled()) {
+                window.location.reload();
+            }
+        } else {
+            const nextMove = getNextMove();
+            if (nextMove) {
+                if (neighborMaxProfit < 1000) {
+                    await  VP.asyncTimeout(10000);
+                }
+                await VPMove(nextMove);
+            }
+        }
+    }
 }
 
 (async function () {
@@ -515,8 +559,11 @@ function buildCollectStatisticsUI() {
         VPLogger.log(`Map rendered`);
         fixUI();
         VPLogger.log(`Added UI fixes to the statlist`);
+        renderNavigation();
 
-        buildCollectStatisticsUI();
+        if (isAutoRunEnabled()) {
+            await autoRun();
+        }
     }
 
 })();

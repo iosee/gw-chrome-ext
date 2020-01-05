@@ -108,7 +108,7 @@
 }
 
 
-.vp-transaction-section button {
+button[type=button] {
     background-color: #dceddc;
     border: 1px solid #6c7d6a;
     display: inline-block;
@@ -157,4 +157,29 @@
     line-height: 8pt;
     padding: 2px;
     border-bottom: 1px dotted #408040;
+}
+
+.vp-floating-navigation {
+    position: absolute;
+    top: 70px;
+    left: 0;
+    border: 1px solid #408040;
+    background: #d1e7c6;
+    padding: 10px;
+    text-align: center;
+}
+.vp-floating-navigation > div {
+    padding: 5px;
+}
+.vp-floating-navigation button {
+    width: 50px;
+    height: 30px;
+    text-align: center;
+    line-height: 30px;
+}
+
+.vp-collected-info {
+    border-top: 1px dotted #408040;
+    margin-top: 5px;
+    padding-top: 5px;
 }

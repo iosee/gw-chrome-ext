@@ -9,7 +9,7 @@
     {
       "matches": ["http://*.gwars.ru/statlist.php?*"],
       "css": ["./styles.css"],
-      "js": ["tool/logger.js", "tool/requests.js", "./statlist.js"]
+      "js": ["tool/logger.js", "tool/requests.js", "tool/moving.js", "./statlist.js"]
     },
     {
       "matches": ["http://*.gwars.ru/usertransfers.php?*"],

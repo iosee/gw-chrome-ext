@@ -17,7 +17,7 @@ const VP = {
             //     // 'Content-Type': 'application/json'
             //     'Content-Type': 'application/x-www-form-urlencoded',
             // },
-            // redirect: 'follow', // manual, *follow, error
+            redirect: 'follow', // manual, *follow, error
             // referrerPolicy: 'no-referrer', // no-referrer, *client
             body: data // body data type must match "Content-Type" header
         });
