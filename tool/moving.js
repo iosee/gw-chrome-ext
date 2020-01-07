@@ -89,6 +89,7 @@ function createAutoMovingElement() {
 
     const collectedInfo = getCollectedInfoByAutoRun();
     const collectedInfoEl = document.createElement('div');
+    const nextMove = getNextMove();
     collectedInfoEl.className = 'vp-collected-info';
     collectedInfoEl.innerHTML = `
     <table>
@@ -96,7 +97,7 @@ function createAutoMovingElement() {
         <tr><td>Visited sectors</td><td>${collectedInfo.sectorsVisited}</td></tr>
         <tr><td>Started</td><td>${collectedInfo.started ? new Date(collectedInfo.started).toTimeString().split(' ')[0] : ''}</td></tr> 
         <tr><td>Finished</td><td>${collectedInfo.finished}</td></tr>
-        <tr><td>Next</td><td>${JSON.stringify(Object.keys(getNextMove()))}</td></tr>
+        <tr><td>Next</td><td>${nextMove ? JSON.stringify(Object.keys(nextMove)) : 'none'}</td></tr>
     </table>`;
     div.appendChild(collectedInfoEl);
 
