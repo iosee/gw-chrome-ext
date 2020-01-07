@@ -114,7 +114,7 @@ function cacheTable(table) {
         if (!res[`${x},${y}`]) {
             res[`${x},${y}`] = [];
         }
-        const [id, name] = line.cells[0].innerHTML.replace(/.*object.php\?id=(\d+)">([^<#]+)<.*/g, '$1,$2').split(',');
+        const [id, name] = line.cells[0].innerHTML.replace(/.*object.php\?id=(\d+)">([^#][^<]+)<.*/g, '$1,$2').split(',');
         const enemy = !!line.querySelector('s');
         res[`${x},${y}`].push({
             element: line,
